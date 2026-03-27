@@ -24,9 +24,27 @@
 
 ---
 
-## Session 2 — (next session)
+## Session 2 — 2026-03-27 | Full Implementation
 
-_To be filled in._
+### Checkpoints completed
+- **CP1** — Vite + React 19 + TS + Tailwind v4 + Supabase + TanStack Query v5 scaffold
+- **CP2** — Data ingestion: Zod validation, file upload UI, Supabase insert for submissions/questions/answers
+- **CP3** — Judge CRUD: create/edit modal, active/inactive toggle, soft-delete
+- **CP4** — Judge assignment: per-question multi-select, persisted to judge_assignments table
+- **CP5** — Evaluation runner: Supabase Edge Function (run-judge), concurrency-capped fan-out, progress tracking
+- **CP6** — Results view: filterable table (judge/question/verdict), aggregate pass-rate stat
+- **CP7** — Polish: Spinner component, README, HISTORY update
+
+### Files created (key ones)
+- supabase/migrations/001_initial_schema.sql
+- supabase/functions/run-judge/index.ts
+- src/lib/{submissions,judges,judgeAssignments,evaluations}.ts
+- src/hooks/{useSubmissions,useJudges,useJudgeAssignments,useEvaluations,useRunEvaluations}.ts
+- src/components/{Layout,FileUpload,JudgeModal,QueueCard,QuestionAssignmentRow,RunJudgesButton,MultiSelect,Spinner}.tsx
+- src/pages/{QueuesPage,JudgesPage,ResultsPage}.tsx
+
+### No objective shifts
+All original requirements met. See OBJECTIVES.md for criterion mapping.
 
 ---
 
