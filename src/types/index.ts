@@ -20,6 +20,7 @@ export interface Submission {
 export interface Question {
   id: string
   submission_id: string
+  template_id: string
   rev: number
   question_type: string
   question_text: string

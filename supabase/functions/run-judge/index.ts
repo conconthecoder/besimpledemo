@@ -113,15 +113,29 @@ async function callAnthropic(
   const response = await client.messages.create({
     model,
     max_tokens: 512,
-    system: systemPrompt + '\n\nYou MUST respond with ONLY a JSON object in this exact format:\n{"verdict": "pass" | "fail" | "inconclusive", "reasoning": "<one concise sentence>"}',
+    system: systemPrompt,
     messages: [{ role: 'user', content: userContent }],
+    output_config: {
+      format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'verdict',
+          schema: {
+            type: 'object',
+            properties: {
+              verdict: { type: 'string', enum: ['pass', 'fail', 'inconclusive'] },
+              reasoning: { type: 'string' },
+            },
+            required: ['verdict', 'reasoning'],
+            additionalProperties: false,
+          },
+        },
+      },
+    },
   })
 
   const text = response.content[0].type === 'text' ? response.content[0].text : ''
-  // Strip markdown fences if present
-  const cleaned = text.replace(/```json\n?|\n?```/g, '').trim()
-  const parsed = VerdictSchema.parse(JSON.parse(cleaned))
-  return parsed
+  return VerdictSchema.parse(JSON.parse(text))
 }
 
 async function callOpenAI(
@@ -144,7 +158,22 @@ async function callOpenAI(
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userContent },
       ],
-      response_format: { type: 'json_object' },
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'verdict',
+          strict: true,
+          schema: {
+            type: 'object',
+            properties: {
+              verdict: { type: 'string', enum: ['pass', 'fail', 'inconclusive'] },
+              reasoning: { type: 'string' },
+            },
+            required: ['verdict', 'reasoning'],
+            additionalProperties: false,
+          },
+        },
+      },
       max_tokens: 512,
     }),
   })

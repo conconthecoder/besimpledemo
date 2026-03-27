@@ -48,4 +48,49 @@ All original requirements met. See OBJECTIVES.md for criterion mapping.
 
 ---
 
+## Session 3 — 2026-03-27 | Code Review & Revisions
+
+### What happened
+- Full codebase audit against the original spec — read all 33 files
+- Found 10 issues ranging from data integrity bugs to doc inaccuracies
+
+### Issues fixed
+
+1. **Question ID collision bug** — `questions.id` used raw template ID (`q_template_1`) which collides across submissions. Now generates composite ID `${submissionId}_${templateId}`. Added `template_id` column to preserve the original.
+
+2. **Edge Function wasn't using native structured output** — was using prompt hack ("respond with ONLY JSON") + `JSON.parse()` with markdown fence stripping. Rewrote both `callAnthropic` and `callOpenAI` to use `output_config` / `json_schema` for guaranteed schema compliance.
+
+3. **Supabase RLS policies missing** — tables were inaccessible via anon key without policies. Added permissive "Allow all" policies to all 6 tables (demo app, no auth).
+
+4. **`@anthropic-ai/sdk` in frontend deps** — only used in Deno Edge Function via `npm:` import. Removed from package.json to avoid bundle bloat.
+
+5. **Duplicate stats query** — `useEvaluationStats` fired a separate identical fetch. Removed; stats now computed inline from already-loaded evaluations array.
+
+6. **OBJECTIVES.md inaccuracies**:
+   - Claimed Zod v3, actually v4
+   - Claimed `client.messages.parse()` + `zodOutputFormat()`, actually uses raw `output_config`
+   - Claimed URL-reflected filters, never implemented
+   - Fixed all to match actual code
+
+7. **No sample_input.json** — added the spec's sample file to the repo root for easy testing.
+
+### Files modified
+- `supabase/migrations/001_initial_schema.sql` — template_id column + RLS policies
+- `supabase/functions/run-judge/index.ts` — native structured output for both providers
+- `src/lib/submissions.ts` — composite question IDs
+- `src/lib/evaluations.ts` — removed unused getEvaluationStats
+- `src/types/index.ts` — added template_id to Question
+- `src/hooks/useEvaluations.ts` — removed useEvaluationStats
+- `src/pages/ResultsPage.tsx` — inline stats computation
+- `OBJECTIVES.md` — 6 factual corrections
+- `package.json` — removed @anthropic-ai/sdk
+
+### Files created
+- `sample_input.json`
+
+### Objective shift
+- OBJECTIVES.md "LLM Structured Output" section now accurately describes the raw JSON schema approach rather than the Zod helper approach (which isn't available in Deno Edge Functions)
+
+---
+
 > **Convention:** Each session entry lists the branch state, files touched, decisions made, and any objective shifts.

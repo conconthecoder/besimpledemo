@@ -22,28 +22,6 @@ export async function getEvaluations(filters: EvaluationFilters = {}): Promise<E
   return data as unknown as Evaluation[]
 }
 
-export interface EvaluationStats {
-  total: number
-  pass: number
-  fail: number
-  inconclusive: number
-  passRate: number
-}
-
-export async function getEvaluationStats(filters: EvaluationFilters = {}): Promise<EvaluationStats> {
-  const evals = await getEvaluations(filters)
-  const total = evals.length
-  const pass = evals.filter((e) => e.verdict === 'pass').length
-  const fail = evals.filter((e) => e.verdict === 'fail').length
-  const inconclusive = evals.filter((e) => e.verdict === 'inconclusive').length
-  return {
-    total,
-    pass,
-    fail,
-    inconclusive,
-    passRate: total > 0 ? Math.round((pass / total) * 100) : 0,
-  }
-}
 
 export async function runJudgeEvaluation(
   submissionId: string,

@@ -11,6 +11,7 @@ create table submissions (
 create table questions (
   id              text primary key,
   submission_id   text not null references submissions(id) on delete cascade,
+  template_id     text not null,
   rev             int not null,
   question_type   text not null,
   question_text   text not null
@@ -58,3 +59,18 @@ create index on evaluations(question_id);
 create index on evaluations(judge_id);
 create index on evaluations(verdict);
 create index on judge_assignments(question_id);
+
+-- Enable RLS but allow all operations for anon users (demo app, no auth)
+alter table submissions enable row level security;
+alter table questions enable row level security;
+alter table answers enable row level security;
+alter table judges enable row level security;
+alter table judge_assignments enable row level security;
+alter table evaluations enable row level security;
+
+create policy "Allow all" on submissions for all using (true) with check (true);
+create policy "Allow all" on questions for all using (true) with check (true);
+create policy "Allow all" on answers for all using (true) with check (true);
+create policy "Allow all" on judges for all using (true) with check (true);
+create policy "Allow all" on judge_assignments for all using (true) with check (true);
+create policy "Allow all" on evaluations for all using (true) with check (true);

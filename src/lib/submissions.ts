@@ -42,9 +42,11 @@ export async function ingestSubmissions(raw: unknown): Promise<{ count: number }
 
     // Upsert questions
     for (const q of sub.questions) {
+      const questionId = `${sub.id}_${q.data.id}`
       const { error: qError } = await supabase.from('questions').upsert({
-        id: q.data.id,
+        id: questionId,
         submission_id: sub.id,
+        template_id: q.data.id,
         rev: q.rev,
         question_type: q.data.questionType,
         question_text: q.data.questionText,
@@ -55,7 +57,7 @@ export async function ingestSubmissions(raw: unknown): Promise<{ count: number }
       const answer = sub.answers[q.data.id]
       if (answer !== undefined) {
         const { error: aError } = await supabase.from('answers').upsert({
-          question_id: q.data.id,
+          question_id: questionId,
           data: answer,
         })
         if (aError) throw aError

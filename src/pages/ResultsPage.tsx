@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useEvaluations, useEvaluationStats } from '../hooks/useEvaluations'
+import { useEvaluations } from '../hooks/useEvaluations'
 import { useJudges } from '../hooks/useJudges'
 import { MultiSelect } from '../components/MultiSelect'
 import { Spinner } from '../components/Spinner'
@@ -29,7 +29,13 @@ export function ResultsPage() {
   }
 
   const { data: evaluations = [], isPending, isError, error } = useEvaluations(filters)
-  const { data: stats } = useEvaluationStats(filters)
+  const stats = evaluations.length > 0 ? {
+    total: evaluations.length,
+    pass: evaluations.filter(e => e.verdict === 'pass').length,
+    fail: evaluations.filter(e => e.verdict === 'fail').length,
+    inconclusive: evaluations.filter(e => e.verdict === 'inconclusive').length,
+    passRate: Math.round((evaluations.filter(e => e.verdict === 'pass').length / evaluations.length) * 100),
+  } : null
   const { data: judges = [] } = useJudges()
 
   const judgeOptions = judges.map((j) => ({ value: j.id, label: j.name }))

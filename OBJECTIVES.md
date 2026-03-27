@@ -29,7 +29,7 @@ The entire product is designed around one insight: **grading at scale requires a
 | Data fetching / cache | TanStack Query | v5 |
 | Backend / database | Supabase (PostgreSQL) | Latest |
 | Server-side LLM execution | Supabase Edge Functions (Deno) | Latest |
-| Schema validation | Zod | v3 |
+| Schema validation | Zod | v4 |
 | Primary LLM | Anthropic Claude (configurable) | claude-haiku-4-5 / claude-sonnet-4-6 |
 
 ### Database Schema
@@ -94,7 +94,7 @@ User clicks "Run AI Judges"
   → for each pair: calls Supabase Edge Function run-judge
       → Edge Function fetches judge + question + answer from DB
       → calls LLM via Anthropic SDK (server-side, key in Supabase Secrets)
-      → uses client.messages.parse() + zodOutputFormat(VerdictSchema)
+      → uses output_config with JSON schema for constrained decoding
       → writes evaluation record to DB
       → returns { verdict, reasoning }
   → frontend tracks planned / completed / failed counts
@@ -116,14 +116,33 @@ const VerdictSchema = z.object({
   reasoning: z.string()
 })
 
-const response = await client.messages.parse({
+const response = await client.messages.create({
   model: judge.targetModel,
-  output_config: { format: zodOutputFormat(VerdictSchema) },
+  max_tokens: 512,
   system: judge.systemPrompt,
-  messages: [{ role: 'user', content: buildPrompt(question, answer) }]
+  messages: [{ role: 'user', content: buildPrompt(question, answer) }],
+  output_config: {
+    format: {
+      type: 'json_schema',
+      json_schema: {
+        name: 'verdict',
+        schema: {
+          type: 'object',
+          properties: {
+            verdict: { type: 'string', enum: ['pass', 'fail', 'inconclusive'] },
+            reasoning: { type: 'string' },
+          },
+          required: ['verdict', 'reasoning'],
+          additionalProperties: false,
+        },
+      },
+    },
+  },
 })
-// response.parsed_output is typed — no JSON.parse(), no schema violation possible
+// response.content[0].text is guaranteed valid JSON matching the schema
 ```
+
+Output is constrained to match the schema — parse with Zod for type safety
 
 ### Security Model
 
@@ -145,7 +164,7 @@ Any key in browser JavaScript is extractable via DevTools. `VITE_ANTHROPIC_API_K
 The filters page has multiple interdependent filter dropdowns. Each filter combination needs its own cache entry. TanStack Query's `queryKey: ['evaluations', filters]` handles this automatically — the cache busts when filters change, and `invalidateQueries(['evaluations'])` after a run ensures fresh data everywhere. Doing this manually with `useEffect` requires reimplementing debouncing, deduplication, and cache invalidation by hand.
 
 ### Native structured output over `JSON.parse()`
-Prompting a model to "return JSON" and then `JSON.parse()`-ing the response fails in production when the model adds markdown fences, trailing commas, or explanation text outside the object. Native structured output (`output_config: { format: zodOutputFormat(...) }`) uses constrained token generation — the model's output is grammatically guaranteed to match the schema. Zero parse errors in production.
+Prompting a model to "return JSON" and then `JSON.parse()`-ing the response fails in production when the model adds markdown fences, trailing commas, or explanation text outside the object. Native structured output (`output_config` with JSON schema) uses constrained token generation — the model's output is grammatically guaranteed to match the schema. Zero parse errors in production.
 
 ### Soft-delete judges, never hard-delete
 If a judge is hard-deleted, all historical evaluations referencing that judge lose their context — you can't tell what criteria produced a verdict. Soft-delete (`active: false`) keeps the record intact while removing it from the assignment UI. This is the right default for any audit trail system.
@@ -183,7 +202,7 @@ Evaluations are immutable records. Re-running judges appends new evaluation reco
 
 - All DB access goes through a thin data layer (`lib/judges.ts`, `lib/evaluations.ts`, etc.) — no raw Supabase calls scattered in components
 - LLM calls are real, authenticated, and server-side only
-- Verdict schema uses Zod + native constrained decoding — guaranteed shape, full TypeScript types
+- Verdict schema enforced via output_config JSON schema — guaranteed shape, validated with Zod
 - All evaluation records include judgeId, submissionId, questionId, verdict, reasoning, timestamp
 
 ### Code Quality — *"Clear naming, small components, idiomatic React"*
@@ -205,7 +224,6 @@ Evaluations are immutable records. Re-running judges appends new evaluation reco
 - Every async boundary has: loading skeleton, error banner with retry, empty state with call-to-action
 - "Run AI Judges" button shows real-time progress: `Running... 4 / 12` → `Done: 10 passed, 1 failed, 1 error`
 - Results page shows aggregate stat prominently above the table
-- Filter selections are reflected in the URL (shareable links)
 
 ### Judgment & Trade-offs — *"Clear reasoning in README for scope cuts or decisions"*
 
@@ -215,4 +233,4 @@ Evaluations are immutable records. Re-running judges appends new evaluation reco
 
 ---
 
-> **Last updated:** 2026-03-27 | Session 1
+> **Last updated:** 2026-03-27 | Session 3
