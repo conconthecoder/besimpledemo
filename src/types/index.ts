@@ -52,3 +52,10 @@ export interface EvaluationFilters {
   questionIds?: string[]
   verdicts?: Verdict[]
 }
+
+// Evaluation with Supabase joined fields (judges, questions, submissions)
+export interface EvaluationWithJoins extends Evaluation {
+  judges: { name: string } | null
+  questions: { question_text: string } | null
+  submissions: { queue_id: string } | null
+}

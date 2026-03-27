@@ -110,6 +110,7 @@ async function callAnthropic(
 ): Promise<z.infer<typeof VerdictSchema>> {
   const client = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') })
 
+  // @ts-expect-error output_config is available in the API but may lag in SDK types
   const response = await client.messages.create({
     model,
     max_tokens: 512,

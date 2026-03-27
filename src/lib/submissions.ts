@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { supabase } from './supabase'
+import type { Submission } from '../types'
 
 // Zod schema matching sample_input.json shape exactly
 const QuestionDataSchema = z.object({
@@ -68,14 +69,14 @@ export async function ingestSubmissions(raw: unknown): Promise<{ count: number }
   return { count: parsed.length }
 }
 
-export async function getSubmissionsByQueue(): Promise<Record<string, import('../types').Submission[]>> {
+export async function getSubmissionsByQueue(): Promise<Record<string, Submission[]>> {
   const { data, error } = await supabase
     .from('submissions')
     .select('*')
     .order('created_at', { ascending: false })
   if (error) throw error
 
-  return (data ?? []).reduce<Record<string, import('../types').Submission[]>>((acc, sub) => {
+  return (data ?? []).reduce<Record<string, Submission[]>>((acc, sub) => {
     const key = sub.queue_id as string
     if (!acc[key]) acc[key] = []
     acc[key].push(sub as import('../types').Submission)

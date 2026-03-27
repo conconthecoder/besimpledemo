@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
-import type { Evaluation, EvaluationFilters } from '../types'
+import type { EvaluationFilters, EvaluationWithJoins } from '../types'
 
-export async function getEvaluations(filters: EvaluationFilters = {}): Promise<Evaluation[]> {
+export async function getEvaluations(filters: EvaluationFilters = {}): Promise<EvaluationWithJoins[]> {
   let query = supabase
     .from('evaluations')
     .select('*, judges(name), questions(question_text), submissions(queue_id)')
@@ -19,7 +19,7 @@ export async function getEvaluations(filters: EvaluationFilters = {}): Promise<E
 
   const { data, error } = await query
   if (error) throw error
-  return data as unknown as Evaluation[]
+  return data as unknown as EvaluationWithJoins[]
 }
 
 

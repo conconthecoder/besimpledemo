@@ -4,19 +4,19 @@ import { useIngestSubmissions } from '../hooks/useSubmissions'
 export function FileUpload() {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
+  const [parseError, setParseError] = useState<string | null>(null)
   const { mutate, isPending, isSuccess, isError, error, data, reset } = useIngestSubmissions()
 
   function handleFile(file: File) {
     reset()
+    setParseError(null)
     const reader = new FileReader()
     reader.onload = (e) => {
       try {
         const json = JSON.parse(e.target?.result as string)
         mutate(json)
       } catch {
-        // Let the mutation error state handle display — but we need to surface parse errors too
-        // Trigger via mutate with invalid shape so Zod catches it
-        mutate(null)
+        setParseError('Invalid JSON — could not parse the file. Make sure it follows sample_input.json shape.')
       }
     }
     reader.readAsText(file)
@@ -64,9 +64,9 @@ export function FileUpload() {
           ✓ Imported {data.count} submission{data.count !== 1 ? 's' : ''}
         </p>
       )}
-      {isError && (
+      {(isError || parseError) && (
         <p className="mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
-          ✗ {error instanceof Error ? error.message : 'Upload failed'}
+          ✗ {parseError ?? (error instanceof Error ? error.message : 'Upload failed')}
         </p>
       )}
     </div>

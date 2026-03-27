@@ -3,7 +3,7 @@ import { useEvaluations } from '../hooks/useEvaluations'
 import { useJudges } from '../hooks/useJudges'
 import { MultiSelect } from '../components/MultiSelect'
 import { Spinner } from '../components/Spinner'
-import type { EvaluationFilters, Verdict } from '../types'
+import type { EvaluationFilters, EvaluationWithJoins, Verdict } from '../types'
 
 const VERDICT_OPTIONS = [
   { value: 'pass', label: 'Pass' },
@@ -43,10 +43,9 @@ export function ResultsPage() {
   // Derive unique questions from loaded evaluations for question filter
   const questionOptions = Array.from(
     new Map(
-      evaluations.map((e) => {
-        const q = (e as unknown as Record<string, unknown>).questions as { question_text: string } | null
-        return [e.question_id, { value: e.question_id, label: q?.question_text ?? e.question_id }]
-      })
+      evaluations.map((e) =>
+        [e.question_id, { value: e.question_id, label: e.questions?.question_text ?? e.question_id }]
+      )
     ).values()
   )
 
@@ -122,10 +121,9 @@ export function ResultsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {evaluations.map((evaluation) => {
-                const raw = evaluation as unknown as Record<string, unknown>
-                const judgeName = (raw.judges as { name: string } | null)?.name ?? evaluation.judge_id
-                const questionText = (raw.questions as { question_text: string } | null)?.question_text ?? evaluation.question_id
+              {evaluations.map((evaluation: EvaluationWithJoins) => {
+                const judgeName = evaluation.judges?.name ?? evaluation.judge_id
+                const questionText = evaluation.questions?.question_text ?? evaluation.question_id
                 return (
                   <tr key={evaluation.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-mono text-xs text-gray-500 max-w-[120px] truncate">
