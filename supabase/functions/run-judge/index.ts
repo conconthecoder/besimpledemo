@@ -87,9 +87,17 @@ Deno.serve(async (req: Request) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error'
+    // Sanitize: never leak internal error details (DB messages, stack traces, model names)
+    const isKnownError = err instanceof Error && (
+      err.message.startsWith('Judge not found') ||
+      err.message.startsWith('Question not found') ||
+      err.message.startsWith('Unsupported model')
+    )
+    const reasoning = isKnownError
+      ? `Evaluation skipped: ${(err as Error).message}`
+      : 'Evaluation could not be completed. Please try again.'
     return new Response(
-      JSON.stringify({ verdict: 'inconclusive', reasoning: `Error: ${message}` }),
+      JSON.stringify({ verdict: 'inconclusive', reasoning }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
