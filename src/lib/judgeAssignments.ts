@@ -4,8 +4,9 @@ import type { JudgeAssignment } from '../types'
 export async function getAssignmentsForQueue(queueId: string): Promise<JudgeAssignment[]> {
   const { data, error } = await supabase
     .from('judge_assignments')
-    .select('*')
+    .select('*, judges!inner(active)')
     .eq('queue_id', queueId)
+    .eq('judges.active', true)
   if (error) throw error
   return data as JudgeAssignment[]
 }

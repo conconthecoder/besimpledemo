@@ -3,12 +3,16 @@ import type { Judge } from '../types'
 import { useCreateJudge, useUpdateJudge } from '../hooks/useJudges'
 
 const MODELS = [
-  'claude-haiku-4-5-20251001',
+  'gpt-4o',
+  'gpt-4o-mini',
   'claude-sonnet-4-6',
   'claude-opus-4-6',
-  'gpt-4o-mini',
-  'gpt-4o',
+  'claude-haiku-4-5-20251001',
+  'gemini-2.5-pro',
   'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
+  'gemini-1.5-flash',
+  'gemini-1.5-flash-8b',
 ]
 
 interface Props {

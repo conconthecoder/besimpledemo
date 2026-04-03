@@ -12,6 +12,15 @@ const VerdictSchema = z.object({
   reasoning: z.string(),
 })
 
+const VerdictJsonSchema = {
+  type: 'object',
+  properties: {
+    verdict: { type: 'string', enum: ['pass', 'fail', 'inconclusive'] },
+    reasoning: { type: 'string' },
+  },
+  required: ['verdict', 'reasoning'],
+}
+
 const RequestSchema = z.object({
   submissionId: z.string(),
   questionId: z.string(),
@@ -69,6 +78,8 @@ Deno.serve(async (req: Request) => {
       verdict = await callAnthropic(modelName, judge.system_prompt as string, promptContent)
     } else if (modelName.startsWith('gpt-')) {
       verdict = await callOpenAI(modelName, judge.system_prompt as string, promptContent)
+    } else if (modelName.startsWith('gemini-')) {
+      verdict = await callGemini(modelName, judge.system_prompt as string, promptContent, VerdictJsonSchema)
     } else {
       throw new Error(`Unsupported model: ${modelName}`)
     }
@@ -87,17 +98,10 @@ Deno.serve(async (req: Request) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
-    // Sanitize: never leak internal error details (DB messages, stack traces, model names)
-    const isKnownError = err instanceof Error && (
-      err.message.startsWith('Judge not found') ||
-      err.message.startsWith('Question not found') ||
-      err.message.startsWith('Unsupported model')
-    )
-    const reasoning = isKnownError
-      ? `Evaluation skipped: ${(err as Error).message}`
-      : 'Evaluation could not be completed. Please try again.'
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    console.error('[run-judge] error:', message)
     return new Response(
-      JSON.stringify({ verdict: 'inconclusive', reasoning }),
+      JSON.stringify({ verdict: 'inconclusive', reasoning: `Error: ${message}` }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
@@ -118,32 +122,51 @@ async function callAnthropic(
 ): Promise<z.infer<typeof VerdictSchema>> {
   const client = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') })
 
-  // @ts-expect-error output_config is available in the API but may lag in SDK types
   const response = await client.messages.create({
     model,
     max_tokens: 512,
-    system: systemPrompt,
+    system: systemPrompt + '\n\nYou MUST respond with ONLY a valid JSON object, no markdown, no extra text:\n{"verdict": "pass" | "fail" | "inconclusive", "reasoning": "<one concise sentence>"}',
     messages: [{ role: 'user', content: userContent }],
-    output_config: {
-      format: {
-        type: 'json_schema',
-        json_schema: {
-          name: 'verdict',
-          schema: {
-            type: 'object',
-            properties: {
-              verdict: { type: 'string', enum: ['pass', 'fail', 'inconclusive'] },
-              reasoning: { type: 'string' },
-            },
-            required: ['verdict', 'reasoning'],
-            additionalProperties: false,
-          },
-        },
-      },
-    },
   })
 
   const text = response.content[0].type === 'text' ? response.content[0].text : ''
+  const cleaned = text.replace(/```json\n?|\n?```/g, '').trim()
+  return VerdictSchema.parse(JSON.parse(cleaned))
+}
+
+async function callGemini(
+  model: string,
+  systemPrompt: string,
+  userContent: string,
+  responseSchema: Record<string, unknown>
+): Promise<z.infer<typeof VerdictSchema>> {
+  const apiKey = Deno.env.get('GEMINI_API_KEY')
+  if (!apiKey) throw new Error('GEMINI_API_KEY not set')
+
+  console.log('[callGemini] model:', model)
+  console.log('[callGemini] responseSchema:', JSON.stringify(responseSchema))
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: 'user', parts: [{ text: userContent }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema,
+        },
+      }),
+    }
+  )
+
+  const data = await response.json() as { candidates?: Array<{ content: { parts: Array<{ text: string }> } }>; error?: { message: string } }
+  if (data.error) throw new Error(`Gemini error: ${data.error.message}`)
+  if (!data.candidates?.length) throw new Error(`Gemini returned no candidates: ${JSON.stringify(data)}`)
+  const text = data.candidates[0].content.parts[0].text
+  console.log('[callGemini] raw response text:', text)
   return VerdictSchema.parse(JSON.parse(text))
 }
 
